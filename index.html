@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>My Ultra Marathon Preparation</title>
+<link rel="icon" href="data:,">
+<style>
+body {
+font-family: Segoe UI, Arial, sans-serif;
+max-width: 1000px;
+margin: 20px auto;
+padding: 20px;
+background: #f5f7fa;
+}
+table {
+background: white;
+border-collapse: collapse;
+width: 100%;
+}
+th {
+background: #0078D4;
+color: white;
+}
+th,
+td {
+padding: 8px;
+border: 1px solid #ddd;
+}
+tr:hover {
+background-color: #f5f9ff;
+}
+h1 {
+text-align: center;
+}
+label {
+display: block;
+margin-top: 15px;
+}
+.dashboard {
+display: flex;
+flex-wrap: wrap;
+gap: 12px;
+}
+.card {
+background: white;
+border-radius: 10px;
+padding: 12px;
+box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+text-align: center;
+min-height: 80px;
+display: flex;
+flex-direction: column;
+justify-content: center;
+}
+.card-value {
+font-size: 28px;
+font-weight: bold;
+color: #0078D4;
+}
+.card-label {
+font-size: 12px;
+color: #666;
+margin-top: 6px;
+min-height: 32px;
+display: flex;
+align-items: center;
+justify-content: center;
+}
+input,
+select,
+textarea {
+width: 100%;
+padding: 10px;
+margin-top: 5px;
+box-sizing: border-box;
+}
+button {
+padding: 10px;
+margin-top: 5px;
+}
+button {
+margin-top: 5px;
+background-color: #0078D4;
+color: white;
+border: none;
+cursor: pointer;
+}
+button:hover {
+background-color: #106EBE;
+}
+#result {
+display: none;
+margin-top: 20px;
+padding: 15px;
+background-color: #f3f3f3;
+border-radius: 5px;
+}
+</style>
+</head>
+<body>
+<h1>My Ultra marathon Preparation</h1>
+<h2>Enter A Run</h2>
+<form id="workoutForm">
+<label for="workoutDate">Date</label>
+<input type="date" id="workoutDate" required>
+<label for="completed">Completed?</label>
+<select id="completed">
+<option value="Yes">Yes</option>
+<option value="No">No</option>
+</select>
+<label for="distance">Distance (km)</label>
+<input type="number" id="distance" step="0.1">
+<label for="comments">Comments</label>
+<textarea id="comments" rows="4"></textarea>
+<button type="submit">Submit Workout</button>
+<div id="result"></div>
+</form>
+<h2 style="margin-top:40px;">
+Manage Data
+</h2>
+<button type="button" onclick="exportCSV()">
+Export CSV
+</button>
+<button type="button" onclick="document.getElementById('csvFile').click()">
+Import CSV
+</button>
+<button
+type="button"
+onclick="clearTable()"
+style="background:#d83b01;"
+>
+Clear Table
+</button>
+<input
+type="file"
+id="csvFile"
+accept=".csv"
+style="display:none"
+onchange="importCSV(event)"
+>
+<h2 style="margin-top:40px;">
+My Key Run Metrics
+</h2>
+<div id="history"></div>
+<script>
+function displayHistory() {
+const workouts =
+JSON.parse(localStorage.getItem("workouts")) || [];
+workouts.forEach(workout => {
+if (!workout.id) {
+workout.id = Date.now() + Math.random();
+}
+});
+localStorage.setItem(
+"workouts",
+JSON.stringify(workouts)
+);
+const searchText =
+document.getElementById("searchComments")
+?.value
+.toLowerCase() || "";
+const filterCompleted =
+document.getElementById("filterCompleted")
+?.value || "All";
+const filteredWorkouts = workouts.filter(workout => {
+const matchesComments =
+workout.comments
+.toLowerCase()
+.includes(searchText);
+const matchesCompleted =
+filterCompleted === "All" ||
+workout.completed === filterCompleted;
+return matchesComments && matchesCompleted;
+});
+const totalDistance = workouts.reduce(
+(total, workout) =>
+total + (parseFloat(workout.distance) || 0),
+0
+);
+const completedWorkouts = workouts.filter(
+workout => workout.completed === "Yes"
+).length;
+const completionPercentage =
+workouts.length === 0
+? 0
+: (completedWorkouts / workouts.length) * 100;
+const distances = workouts.map(
+workout => parseFloat(workout.distance) || 0
+);
+const longestRun =
+distances.length > 0
+? Math.max(...distances)
+: 0;
+const averageDistance =
+workouts.length > 0
+? totalDistance / workouts.length
+: 0;
+const now = new Date();
+const currentMonthDistance = workouts
+.filter(workout => {
+const date = new Date(workout.date);
+return (
+date.getMonth() === now.getMonth() &&
+date.getFullYear() === now.getFullYear()
+);
+})
+.reduce(
+(total, workout) =>
+total + (parseFloat(workout.distance) || 0),
+0
+);
+const currentMonthWorkouts = workouts.filter(workout => {
+const date = new Date(workout.date);
+return (
+date.getMonth() === now.getMonth() &&
+date.getFullYear() === now.getFullYear()
+);
+}).length;
+const sevenDaysAgo = new Date();
+sevenDaysAgo.setDate(
+sevenDaysAgo.getDate() - 7
+);
+const rolling7DayDistance = workouts
+.filter(workout =>
+new Date(workout.date) >= sevenDaysAgo
+)
+.reduce(
+(total, workout) =>
+total + (parseFloat(workout.distance) || 0),
+0
+);
+const thirtyDaysAgo = new Date();
+thirtyDaysAgo.setDate(
+thirtyDaysAgo.getDate() - 30
+);
+const rolling30DayDistance = workouts
+.filter(workout =>
+new Date(workout.date) >= thirtyDaysAgo
+)
+.reduce(
+(total, workout) =>
+total + (parseFloat(workout.distance) || 0),
+0
+);
+const sortedWorkouts = [...workouts].sort(
+(a, b) => new Date(b.date) - new Date(a.date)
+);
+let currentStreak = 0;
+for (const workout of sortedWorkouts) {
+if (workout.completed === "Yes") {
+currentStreak++;
+} else {
+break;
+}
+}
+let longestStreak = 0;
+let runningStreak = 0;
+const oldestFirst = [...workouts].sort(
+(a, b) => new Date(a.date) - new Date(b.date)
+);
+oldestFirst.forEach(workout => {
+if (workout.completed === "Yes") {
+runningStreak++;
+if (runningStreak > longestStreak) {
+longestStreak = runningStreak;
+}
+} else {
+runningStreak = 0;
+}
+});
+const weeklyTotals = {};
+workouts.forEach(workout => {
+const date = new Date(workout.date);
+if (isNaN(date)) return;
+const weekStart = new Date(date);
+weekStart.setDate(
+date.getDate() - date.getDay()
+);
+const key =
+weekStart.toISOString().split("T")[0];
+weeklyTotals[key] =
+(weeklyTotals[key] || 0) +
+(parseFloat(workout.distance) || 0);
+});
+const weeks =
+Object.keys(weeklyTotals)
+.sort()
+.slice(-12);
+const weeklyValues =
+weeks.map(week => weeklyTotals[week]);
+const maxWeeklyDistance =
+Math.max(...weeklyValues, 1); 
+if (workouts.length === 0) {
+document.getElementById("history").innerHTML =
+"<p>No workouts recorded yet.</p>";
+return;
+}
+let chartHtml = `
+<h2 style="margin-top:40px;">
+Weekly Run Distance
+</h2>
+<svg
+width="100%"
+height="240"
+viewBox="0 0 700 240"
+>
+`;
+weeklyValues.forEach((value, index) => {
+const barWidth = 35;
+const gap = 10;
+const chartWidth = 700;
+const totalBarsWidth =
+weeklyValues.length * (barWidth + gap) - gap;
+const startX =
+(chartWidth - totalBarsWidth) / 2;
+const x =
+startX + index * (barWidth + gap);
+const height =
+(value / maxWeeklyDistance) * 150;
+const y =
+180 - height;
+const tooltipDate =
+new Date(weeks[index])
+.toLocaleDateString(
+"en-GB",
+{
+day: "numeric",
+month: "short",
+year: "numeric"
+}
+);
+chartHtml += `
+<rect
+x="${x}"
+y="${y}"
+width="${barWidth}"
+height="${height}"
+rx="4"
+ry="4"
+fill="#0099FF"
+style="cursor:pointer;"
+>
+<title>
+Week starting ${tooltipDate}
+Distance: ${value.toFixed(1)} km
+</title>
+</rect>
+`;
+const weekLabel =
+new Date(weeks[index])
+.toLocaleDateString(
+"en-GB",
+{
+day: "numeric",
+month: "short"
+}
+);
+chartHtml += `
+<text
+x="${x + barWidth / 2}"
+y="190"
+font-size="10"
+text-anchor="middle"
+>
+${value.toFixed(0)}
+</text>
+`;
+chartHtml += `
+<text
+x="${x + barWidth / 2}"
+y="210"
+font-size="8"
+text-anchor="middle"
+fill="#666"
+>
+${weekLabel}
+</text>
+`;
+});
+chartHtml += `
+</svg>
+`;
+let html = `
+<div class="dashboard" style="
+display:grid;
+grid-template-columns: repeat(4, 1fr);
+gap:20px;
+width:100%;
+margin-bottom:20px;
+">
+<div
+class="card"
+style="
+background:white;
+border-radius:10px;
+padding:12px;
+box-shadow:0 2px 6px rgba(0,0,0,0.1);
+text-align:center;
+"
+>
+<div class="card-value">
+${totalDistance.toFixed(1)}
+</div>
+<div class="card-label">
+Total distance (km)
+</div>
+</div>
+<div
+class="card"
+style="
+background:white;
+border-radius:10px;
+padding:12px;
+box-shadow:0 2px 6px rgba(0,0,0,0.1);
+text-align:center;
+"
+>
+<div class="card-value">
+${workouts.length}
+</div>
+<div class="card-label">
+Workouts logged
+</div>
+</div>
+<div
+class="card"
+style="
+background:white;
+border-radius:10px;
+padding:12px;
+box-shadow:0 2px 6px rgba(0,0,0,0.1);
+text-align:center;
+"
+>
+<div class="card-value">
+${completionPercentage.toFixed(0)}%
+</div>
+<div class="card-label">
+Completion rate
+</div>
+</div>
+<div
+class="card"
+style="
+background:white;
+border-radius:10px;
+padding:12px;
+box-shadow:0 2px 6px rgba(0,0,0,0.1);
+text-align:center;
+"
+>
+<div class="card-value">
+${longestRun.toFixed(1)}
+</div>
+<div class="card-label">
+Longest run (km)
+</div>
+</div>
+<div
+class="card"
+style="
+background:white;
+border-radius:10px;
+padding:12px;
+box-shadow:0 2px 6px rgba(0,0,0,0.1);
+text-align:center;
+"
+>
+<div class="card-value">
+${rolling7DayDistance.toFixed(1)}
+</div>
+<div class="card-label">
+Distance last 7 days (km)
+</div>
+</div>
+<div
+class="card"
+style="
+background:white;
+border-radius:10px;
+padding:12px;
+box-shadow:0 2px 6px rgba(0,0,0,0.1);
+text-align:center;
+"
+>
+<div class="card-value">
+${rolling30DayDistance.toFixed(1)}
+</div>
+<div class="card-label">
+Distance last 30 days (km)
+</div>
+</div>
+<div
+class="card"
+style="
+background:white;
+border-radius:10px;
+padding:12px;
+box-shadow:0 2px 6px rgba(0,0,0,0.1);
+text-align:center;
+"
+>
+<div class="card-value">
+${currentStreak}
+</div>
+<div class="card-label">
+Current streak (runs)
+</div>
+</div>
+<div
+class="card"
+style="
+background:white;
+border-radius:10px;
+padding:12px;
+box-shadow:0 2px 6px rgba(0,0,0,0.1);
+text-align:center;
+"
+>
+<div class="card-value">
+${longestStreak}
+</div>
+<div class="card-label">
+Best streak (runs)
+</div>
+</div>
+</div>
+${chartHtml}
+<h2 style="
+margin-top:20px;
+margin-bottom:10px;
+">
+Planned Run Outcomes
+</h2>
+<div style="margin:15px 0;">
+<input
+type="text"
+id="searchComments"
+placeholder="Search comments..."
+onkeyup="displayHistory()"
+>
+<select
+id="filterCompleted"
+onchange="displayHistory()"
+style="margin-top:10px;"
+>
+<option value="All">All Workouts</option>
+<option value="Yes">Completed Only</option>
+<option value="No">Missed Only</option>
+</select>
+</div>
+<div style="
+margin:15px 0;
+font-size:14px;
+text-align:center;
+">
+<span style="color:green;font-weight:bold;">■</span>
+Completed
+&nbsp;&nbsp;&nbsp;
+<span style="color:red;font-weight:bold;">■</span>
+Missed
+</div>
+<table border="1" cellpadding="5" cellspacing="0" width="100%">
+<tr>
+<th>Date</th>
+<th>Completed</th>
+<th>Distance</th>
+<th>Comments</th>
+<th>Action</th>
+</tr>
+`;
+filteredWorkouts.forEach(workout => {
+html += `
+<tr style="background-color:${
+workout.completed === "Yes"
+? "#e8f5e9"
+: "#ffebee"
+};">
+<td>
+${new Date(workout.date).toLocaleDateString("en-GB")}
+</td>
+<td style="
+color:${
+workout.completed === "Yes"
+? "green"
+: "red"
+};
+font-weight:bold;
+">
+${workout.completed}
+</td>
+<td>${workout.distance}</td>
+<td>${workout.comments}</td>
+<td>
+<button onclick="editWorkout('${workout.id}')">
+Edit
+</button>
+<button onclick="deleteWorkout('${workout.id}')">
+Delete
+</button>
+</td>
+</tr>
+`;
+});
+html += "</table>";
+document.getElementById("history").innerHTML = html;
+}
+function editWorkout(id) {
+let workouts =
+JSON.parse(localStorage.getItem("workouts")) || [];
+const workout =
+workouts.find(
+w => String(w.id) === String(id)
+);
+if (!workout) return;
+document.querySelector(
+'#workoutForm button[type="submit"]'
+).textContent = "Update Workout";
+document.getElementById("workoutDate").value =
+workout.date;
+document.getElementById("completed").value =
+workout.completed;
+document.getElementById("distance").value =
+workout.distance;
+document.getElementById("comments").value =
+workout.comments;
+localStorage.setItem(
+"editId",
+id
+);
+}
+function deleteWorkout(id) {
+if (!confirm("Delete this workout?")) {
+return;
+}
+let workouts =
+JSON.parse(localStorage.getItem("workouts")) || [];
+workouts = workouts.filter(
+workout =>
+String(workout.id) !== String(id)
+);
+localStorage.setItem(
+"workouts",
+JSON.stringify(workouts)
+);
+displayHistory();
+}
+function clearTable() {
+const confirmed = confirm(
+"Are you sure you want to delete ALL run data?"
+);
+if (!confirmed) {
+return;
+}
+localStorage.removeItem("workouts");
+localStorage.removeItem("editId");
+displayHistory();
+alert("All run data has been cleared.");
+}
+function importCSV(event) {
+const file = event.target.files[0];
+if (!file) return;
+const reader = new FileReader();
+reader.onload = function(e) {
+const csv = e.target.result;
+const lines = csv.split('\n');
+let workouts = [];
+for (let i = 1; i < lines.length; i++) {
+const line = lines[i].trim();
+if (!line) continue;
+const values = line
+.split(',')
+.map(v => v.replace(/"/g, '').trim());
+workouts.push({
+id: Date.now() + Math.random(),
+date: values[0] || "",
+completed: values[1] || "",
+distance: values[2] || "",
+comments: values[3] || ""
+});
+}
+localStorage.setItem(
+"workouts",
+JSON.stringify(workouts)
+);
+displayHistory();
+alert(
+workouts.length +
+" workouts imported successfully."
+);
+};
+reader.readAsText(file);
+}
+function exportCSV() {
+const workouts =
+JSON.parse(localStorage.getItem("workouts")) || [];
+if (workouts.length === 0) {
+alert("No workouts to export.");
+return;
+}
+let csv =
+"Date,Completed,Distance (km),Comments\n";
+workouts.forEach(workout => {
+csv +=
+`"${workout.date}",` +
+`"${workout.completed}",` +
+`"${workout.distance}",` +
+`"${workout.comments}"\n`;
+});
+const blob = new Blob(
+[csv],
+{ type: "text/csv;charset=utf-8;" }
+);
+const url = URL.createObjectURL(blob);
+const link = document.createElement("a");
+link.href = url;
+link.download = "workouts.csv";
+document.body.appendChild(link);
+link.click();
+document.body.removeChild(link);
+URL.revokeObjectURL(url);
+}
+document
+.getElementById("workoutForm")
+.addEventListener("submit", function(event) {
+event.preventDefault();
+const workout = {
+id: Date.now(),
+date: document.getElementById("workoutDate").value,
+completed: document.getElementById("completed").value,
+distance: document.getElementById("distance").value,
+comments: document.getElementById("comments").value
+};
+let workouts =
+JSON.parse(localStorage.getItem("workouts")) || [];
+const editId =
+localStorage.getItem("editId");
+if (editId !== null) {
+const index =
+workouts.findIndex(
+w => String(w.id) === String(editId)
+);
+workout.id = editId;
+workouts[index] = workout;
+localStorage.removeItem(
+"editId"
+);
+} else {
+workouts.push(workout);
+}
+localStorage.setItem(
+"workouts",
+JSON.stringify(workouts)
+);
+const result =
+document.getElementById("result");
+result.style.display = "block";
+result.innerHTML =
+"<h3>✅ Workout Saved</h3>";
+setTimeout(() => {
+result.style.display = "none";
+result.innerHTML = "";
+}, 3000);
+document.getElementById("workoutForm").reset();
+document.querySelector(
+'#workoutForm button[type="submit"]'
+).textContent = "Submit Workout";
+displayHistory();
+});
+displayHistory();
+</script>
+</body>
+</html>
